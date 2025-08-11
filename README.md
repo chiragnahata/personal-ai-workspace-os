@@ -1,8 +1,44 @@
 # Personal AI Workspace OS (Desktop)
 
-Local-first, Jarvis‑style personal AI Workspace OS. A desktop application that unifies your files, notes, tasks, and email into a single conversational interface. It can search, read, write, summarize, generate, plan multi‑step automations, and invoke system tools – all privately on your machine using a local LLM + MCP (Model Context Protocol) style tool adapters.
+<p align="center">
+        <strong>Local-first, Jarvis‑style AI operator for YOUR machine.</strong><br/>
+        Conversational control over files, notes, tasks, and email with secure local tool execution & offline LLMs.
+</p>
 
-> Mission: Give you an extensible personal operator that actually does work for you – without shipping your data to the cloud.
+<p align="center">
+        <em>Mission: Give you an extensible personal operator that actually does work for you – without shipping your data to the cloud.</em>
+</p>
+
+<p align="center">
+        <!-- Badges (activate when infra ready) -->
+        <a href="#license"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue" /></a>
+        <a href="#roadmap"><img alt="Status" src="https://img.shields.io/badge/status-prototype-orange" /></a>
+        <a href="#security--privacy-model-planned"><img alt="Local First" src="https://img.shields.io/badge/local-first-success" /></a>
+</p>
+
+---
+
+## Table of Contents
+1. [Feature Highlights](#feature-highlights)
+2. [Why Local?](#why-local)
+3. [Design Principles](#design-principles)
+4. [Architecture](#high-level-architecture)
+5. [Core Concepts](#core-concepts)
+6. [Repository Structure](#repository-structure)
+7. [Development Quickstart](#development-quickstart)
+8. [Tool Invocation & Spec](#tool-invocation--spec)
+9. [Desktop Packaging (Planned)](#planned-desktop-packaging)
+10. [Security & Privacy](#security--privacy-model-planned)
+11. [Roadmap](#roadmap-detailed)
+12. [Extending (Add a Tool)](#extending-adding-a-tool-example)
+13. [FAQ](#faq)
+14. [Contributing](#contributing-early-stage)
+15. [Design / Future Ideas](#future-ideas)
+16. [Changelog](#changelog)
+17. [License](#license)
+18. [Disclaimer](#disclaimer)
+
+---
 
 ## Feature Highlights
 | Area | Current | Next Up |
@@ -21,22 +57,35 @@ Local-first, Jarvis‑style personal AI Workspace OS. A desktop application that
 3. Cost: Zero token charges for local models.
 4. Extensibility: Add niche tools instantly (scripts, CLIs, domain datasets).
 
+## Design Principles
+1. Local-first by default (remote = explicit opt-in).
+2. Minimal friction: install & get value in under 2 minutes.
+3. Clear boundaries: explicit tool permission prompts before write/exec.
+4. Human-in-the-loop: autonomy only with checkpoints & diff previews.
+5. Composable primitives > monolithic agent logic.
+6. Deterministic core + probabilistic augmentation (LLM only where needed).
+7. Auditability: every tool call loggable & reproducible.
+
 ## High-Level Architecture
 ```
-+------------------------------+            +-------------------------+
-| Desktop Shell (Tauri/Electron)|  HTTP/WS   | FastAPI Backend (ASGI) |
-|  - Window, Tray, Hotkeys     +<---------->+  Chat / Session API     |
-|  - Local secure store        |            |  Orchestrator / Router  |
-+---------------+--------------+            +-----------+-------------+
-                                ^                                       |
-                                |                                       v
-                +-------+---------+          +-------------------------------+
-                |  Local LLM      |          |   MCP Tool Adapters           |
-                | (Ollama / GGUF) |          |  - File System (list/read/..) |
-                +-----------------+          |  - Notes / Tasks              |
-                                                                            |  - Email (mock -> IMAP/Graph) |
-                                                                            |  - Shell / Process (guarded)  |
-                                                                            +-------------------------------+
+┌─────────────────────────────┐       HTTP / WebSocket       ┌────────────────────────────┐
+│  Desktop Shell (Tauri/Electron) ───────────────────────────▶│     FastAPI Backend (ASGI) │
+│  • Window / Tray / Hotkeys  │◀─────────────────────────────┤  Chat / Sessions / Router  │
+│  • Secure local store       │                              └──────────┬─────────────────┘
+└─────────────────────────────┘                                         │
+                                                                        │
+                                             ┌──────────────────────────┴─────────┐
+                                             │     Tool Layer (MCP-style)         │
+                                             │  • File System / Notes / Tasks     │
+                                             │  • Email (mock → IMAP/Graph)       │
+                                             │  • Shell / Process (guarded)       │
+                                             │  • Future: Calendar, Browser, AI   │
+                                             └──────────────────────────┬─────────┘
+                                                                        │
+                                              ┌─────────────────────────┴────────┐
+                                              │          Local LLM Engine         │
+                                              │   (Ollama / llama.cpp / GGUF)     │
+                                              └───────────────────────────────────┘
 ```
 
 ## Core Concepts
@@ -103,6 +152,44 @@ Open: http://localhost:5173 (UI) & http://127.0.0.1:8000/docs (API)
 !tool file_list dir=.
 ```
 
+## Tool Invocation & Spec
+Current dev syntaxes (will converge to a single unified JSON schema execution flow):
+
+1. Chat inline command:
+```
+!tool file_list dir=backend
+```
+2. REST direct:
+```
+POST /tools/file_list {"dir": "backend"}
+```
+3. Programmatic (future):
+```
+POST /agent/message {"message": "List python files in backend"}
+```
+
+### Tool JSON Contract (proposed)
+```jsonc
+{
+        "name": "file_list",
+        "description": "List files in a directory (non-recursive)",
+        "input_schema": {
+                "type": "object",
+                "properties": {
+                        "dir": {"type": "string", "description": "Directory path", "default": "."},
+                        "filter": {"type": "string", "description": "Glob (optional)"}
+                },
+                "required": []
+        },
+        "safety": {
+                "capability": "filesystem.read",
+                "scope": "<path>" // resolved & validated at call time
+        }
+}
+```
+
+Planned safety categories: `filesystem.read`, `filesystem.write`, `process.exec`, `network.request`, `email.send`.
+
 ## Planned Desktop Packaging
 Two target wrappers:
 1. Tauri (Rust backend, small footprint, uses existing web assets)
@@ -125,16 +212,20 @@ cd frontend && npm run build
 | Secrets | Encrypted local key/value store (OS keychain) |
 
 ## Roadmap (Detailed)
-Phase 1 (Scaffold) – DONE
-Phase 2: Core tools (file read/write/search, notes/tasks in-memory)
-Phase 3: Local LLM streaming + tool calling
-Phase 4: Persistence layer (SQLite + migrations)
-Phase 5: Email mock -> IMAP/Graph integration
-Phase 6: Planning loop + approval UX
-Phase 7: Desktop packaging (Tauri + updater)
-Phase 8: Permissions & audit log
-Phase 9: Plugin SDK (drop-in Python/Node tools)
-Phase 10: Vector memory & semantic search
+| Phase | Title | Key Deliverables | Status |
+|-------|-------|------------------|--------|
+| 1 | Scaffold | Backend + UI shell + basic tools | ✅ Done |
+| 2 | Core Tools | file read/write/search, notes/tasks memory store | ⏳ In Progress |
+| 3 | Local LLM | Streaming + tool selection | Planned |
+| 4 | Persistence | SQLite sessions, notes, tasks | Planned |
+| 5 | Email Integration | Mock -> IMAP/Graph adapter | Planned |
+| 6 | Autonomous Planner | Multi-step w/ approvals & diffs | Planned |
+| 7 | Desktop Packaging | Tauri build + updater | Planned |
+| 8 | Permissions & Audit | Policy engine + logs | Planned |
+| 9 | Plugin SDK | External tool hot-reload API | Planned |
+| 10 | Vector Memory | Embeddings + semantic search | Planned |
+
+Milestones may shift based on feedback & contribution velocity.
 
 ## Extending: Adding a Tool (Example)
 ```python
@@ -164,6 +255,19 @@ registry["hello"] = HelloTool()
 2. Add or update a tool / feature
 3. Keep changes modular; include minimal tests (coming soon) & README snippet if introducing new tool categories.
 
+## Future Ideas
+| Idea | Rationale |
+|------|-----------|
+| Calendar + Scheduling Tool | Automate meeting prep & follow-ups |
+| Browser Control Tool | Research & summarization loops |
+| Local Vector Store | Persistent semantic recall |
+| Runbook Generation | Convert successful plans into reusable macros |
+| Multi-Model Strategy | Switch small/large models based on task cost |
+| Diff-based File Editing | Safer write operations with preview |
+
+## Changelog
+See upcoming `CHANGELOG.md` once first tagged release (v0.1.0) is cut.
+
 ## License
 MIT (placeholder – may add CLA if ecosystem grows)
 
@@ -172,3 +276,6 @@ Early prototype. Expect API churn. Not production-hardened yet (no sandbox / aut
 
 ---
 Feel free to open issues for: model integration preferences, tool ideas, or security concerns.
+
+---
+<sub>Made with a focus on local empowerment & privacy.</sub>
