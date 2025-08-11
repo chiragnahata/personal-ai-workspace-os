@@ -6,6 +6,7 @@ import os
 
 from .schemas import ChatMessage, ChatRequest
 from .tools import registry as tool_registry
+from . import agent
 
 app = FastAPI(title="Personal AI Workspace OS API", version="0.1.0")
 
@@ -120,3 +121,21 @@ async def invoke_tool(tool_name: str, payload: dict):
         return {"result": tool.run(payload)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agent/plan")
+async def agent_plan(goal: dict):
+    text = goal.get("goal") or ""
+    plan = agent.plan(text)
+    return {"goal": text, "plan": plan}
+
+
+@app.post("/agent/execute")
+async def agent_execute(body: dict):
+    goal = body.get("goal", "")
+    auto = bool(body.get("auto", False))
+    max_steps = int(body.get("max_steps", 5))
+    if not goal:
+        raise HTTPException(status_code=400, detail="goal required")
+    result = agent.run_goal(goal, max_steps=max_steps, auto=auto)
+    return result
