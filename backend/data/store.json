@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1755442041465,
+    "title": "State Merit Scholarship 2025",
+    "link": "/apply/state-merit",
+    "summary": "Open for students from State X. Deadline: 30 Sep 2025.",
+    "source": "file://D:\\Hackathons\\Status Code 2\\sc2\\backend\\test-data\\sample.html",
+    "scrapedAt": "2025-08-17T14:47:20.950Z"
+  },
+  {
+    "id": 1755442041353,
+    "title": "Private NGO Scholarship",
+    "link": "https://ngo.example/scholarship",
+    "summary": "For students pursuing engineering.",
+    "source": "file://D:\\Hackathons\\Status Code 2\\sc2\\backend\\test-data\\sample.html",
+    "scrapedAt": "2025-08-17T14:47:20.950Z"
+  }
+]
